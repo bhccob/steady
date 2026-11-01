@@ -26,7 +26,14 @@
       ]
     },
     "plugins": [
-      "expo-router",
+      [
+        "expo-router",
+        {
+          "asyncRoutes": {
+            "web": false
+          }
+        }
+      ],
       "expo-status-bar",
       "expo-sqlite",
       "expo-localization",
@@ -91,11 +98,6 @@
       "bundler": "metro"
     },
     "extra": {
-      "router": {
-        "asyncRoutes": {
-          "web": true
-        }
-      },
       "eas": {
         "projectId": "a8c3fded-bf05-49e9-84e9-cc9b2fc4bda6"
       }

@@ -29,7 +29,7 @@
   ],
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!_expo/|assets/).*)",
       "destination": "/index.html"
     }
   ]

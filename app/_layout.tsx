@@ -1,8 +1,9 @@
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, type ErrorBoundaryProps } from 'expo-router';
 import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AccountBridge } from '../src/account/AccountBridge';
@@ -13,12 +14,21 @@ import { PrivacyGate } from '../src/privacy/PrivacyGate';
 import { FONT_FILES } from '../src/theme/fonts';
 import { useTheme } from '../src/theme/useTheme';
 import { Background } from '../src/ui/Background';
+import { LoadProblem } from '../src/ui/LoadProblem';
 import { useDbLock } from '../src/web/dbLock';
 import { opensDatabase } from '../src/web/install';
 import { InstallScreen } from '../src/web/InstallScreen';
 import { OpenElsewhere } from '../src/web/OpenElsewhere';
 import { persistStorage, registerServiceWorker } from '../src/web/startWeb';
 import { useInstall } from '../src/web/useInstall';
+
+/**
+ * Any screen that crashes shows this instead of a blank app. On the web a crash can mean Steady
+ * was updated underneath the open page, so trying again loads the page afresh.
+ */
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  return <LoadProblem what="Steady" problem={error.message} onRetry={Platform.OS === 'web' ? () => window.location.reload() : retry} />;
+}
 
 // Root: migrations run before any screen renders. Biometric gate arrives in P1.
 export default function RootLayout() {
