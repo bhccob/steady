@@ -17,6 +17,7 @@ import { listSchedules, type Schedule } from '../../src/db/dao/schedules';
 import { listConditions } from '../../src/db/dao/support';
 import { loadData } from '../../src/lib/loadData';
 import { formatHm } from '../../src/lib/time';
+import { playTink } from '../../src/lib/tink';
 import { cancelAllScheduledNotificationsAsync, dismissAllNotificationsAsync } from '../../src/lib/notifications';
 import { forgetReminders, remindersOn, syncSoon, turnOnReminders } from '../../src/notify/port';
 import { turnOnProblem } from '../../src/notify/turnOnProblem';
@@ -132,6 +133,13 @@ export default function SettingsScreen() {
   const setHide = async (on: boolean) => {
     await updateProfile(db, { hideInSwitcher: on });
     useApp.getState().setPrivacy({ ...useApp.getState().privacy, hide: on });
+  };
+
+  const setSound = async (on: boolean) => {
+    await updateProfile(db, { markSound: on });
+    // Turning it on plays it once, so it's clear what it is.
+    if (on) playTink();
+    useApp.getState().bumpData();
   };
 
   const load = useCallback(async () => {
@@ -361,6 +369,10 @@ export default function SettingsScreen() {
 
           <Section title="Sleep">
             <Row label="Bedtime reminders" value={sleepValue} onPress={() => router.push('/edit/sleep')} />
+          </Section>
+
+          <Section title="Sound">
+            <Toggle label="Sound when marking" hint="A soft tink as the day's block lands on your path." value={profile.markSound} onChange={setSound} />
           </Section>
 
           <Section title="My patterns">

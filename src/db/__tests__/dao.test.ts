@@ -119,6 +119,14 @@ describe('profile', () => {
     expect(await getProfile(db)).toMatchObject({ setupAnswered: ['sleep', 'support'], setupHiddenAt: '2026-10-31T10:00:00.000Z' });
   });
 
+  it('keeps the sound when marking off until it is turned on', async () => {
+    const db = await freshDb();
+    await createProfile(db, { displayName: '', timezone: 'UTC' });
+    expect((await getProfile(db))?.markSound).toBe(false);
+    await updateProfile(db, { markSound: true });
+    expect((await getProfile(db))?.markSound).toBe(true);
+  });
+
   it('reads a damaged list of setup answers as empty', async () => {
     const db = await freshDb();
     await createProfile(db, { displayName: '', timezone: 'UTC' });

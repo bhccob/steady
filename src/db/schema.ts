@@ -198,3 +198,8 @@ export const SCHEMA_V8 = `
 ALTER TABLE profile ADD COLUMN setup_answered_json TEXT NOT NULL DEFAULT '[]';
 ALTER TABLE profile ADD COLUMN setup_hidden_at TEXT;
 `;
+
+/** Settings > Sound when marking: a soft tink as today's block lands. Off by default. */
+export const SCHEMA_V9 = `
+ALTER TABLE profile ADD COLUMN mark_sound INTEGER NOT NULL DEFAULT 0;
+`;

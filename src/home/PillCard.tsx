@@ -46,6 +46,14 @@ export function PillCard({ next, nowMs, hasMeds, note, onMark, onAdd }: PillCard
   const [width, setWidth] = useState(300);
   const [x] = useState(() => new Animated.Value(0));
   const markable = next !== null && nowMs >= next.dueMs - EARLY_MS;
+  // "Marked" covers the card while Home swaps in the next pill underneath.
+  const [confirm] = useState(() => new Animated.Value(0));
+  const flash = () =>
+    Animated.sequence([
+      Animated.timing(confirm, { toValue: 1, duration: 140, useNativeDriver: true }),
+      Animated.delay(650),
+      Animated.timing(confirm, { toValue: 0, duration: 260, useNativeDriver: true }),
+    ]).start();
 
   // The latest props for the gesture handlers, which are made once.
   const live = useRef({ next, width, onMark, markable, reduced });
@@ -63,6 +71,7 @@ export function PillCard({ next, nowMs, hasMeds, note, onMark, onAdd }: PillCard
         const { next: n, width: w, onMark: mark, reduced: still } = live.current;
         if (n && g.dx > w * 0.4) {
           const done = () => {
+            flash();
             mark(n.id);
             x.setValue(0);
           };
@@ -93,14 +102,31 @@ export function PillCard({ next, nowMs, hasMeds, note, onMark, onAdd }: PillCard
     );
   }
 
+  const marked = (
+    <Animated.View
+      pointerEvents="none"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={[styles.marked, { backgroundColor: theme.accent, opacity: confirm }]}
+    >
+      <Icon name="check" size={22} color={theme.onAccent} />
+      <AppText variant="bodyStrong" style={{ color: theme.onAccent }}>
+        Marked
+      </AppText>
+    </Animated.View>
+  );
+
   if (!next) {
     return (
-      <Glass contentStyle={styles.card}>
-        <AppText tone="secondary" variant="caption">
-          today
-        </AppText>
-        <AppText variant="heading">All marked for today.</AppText>
-      </Glass>
+      <View>
+        <Glass contentStyle={styles.card}>
+          <AppText tone="secondary" variant="caption">
+            today
+          </AppText>
+          <AppText variant="heading">All marked for today.</AppText>
+        </Glass>
+        {marked}
+      </View>
     );
   }
 
@@ -118,7 +144,15 @@ export function PillCard({ next, nowMs, hasMeds, note, onMark, onAdd }: PillCard
         </View>
       </Animated.View>
       <Animated.View style={{ transform: [{ translateX: x }] }} {...pan.panHandlers}>
-        <Glass contentStyle={styles.card} accessibilityActions={markable ? [{ name: 'activate', label: 'Mark taken' }] : undefined} onAccessibilityAction={() => markable && onMark(next.id)}>
+        <Glass
+          contentStyle={styles.card}
+          accessibilityActions={markable ? [{ name: 'activate', label: 'Mark taken' }] : undefined}
+          onAccessibilityAction={() => {
+            if (!markable) return;
+            flash();
+            onMark(next.id);
+          }}
+        >
           <View style={styles.top}>
             <View style={styles.grow}>
               <AppText tone="secondary" variant="caption">
@@ -146,7 +180,10 @@ export function PillCard({ next, nowMs, hasMeds, note, onMark, onAdd }: PillCard
                 radius={25}
                 accessibilityRole="button"
                 accessibilityLabel={`Mark ${next.label} as taken, due ${next.timeLabel}`}
-                onPress={() => onMark(next.id)}
+                onPress={() => {
+                  flash();
+                  onMark(next.id);
+                }}
                 style={({ pressed }) => [
                   styles.round,
                   { backgroundColor: theme.accent, borderBottomColor: theme.accentDeep, borderBottomWidth: pressed ? 2 : 4, transform: [{ translateY: pressed ? 2 : 0 }] },
@@ -162,6 +199,7 @@ export function PillCard({ next, nowMs, hasMeds, note, onMark, onAdd }: PillCard
           )}
         </Glass>
       </Animated.View>
+      {marked}
     </View>
   );
 }
@@ -176,4 +214,5 @@ const styles = StyleSheet.create({
   round: { width: 50, height: 50, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
   under: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 28, overflow: 'hidden', justifyContent: 'center' },
   underInner: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 18, width: 200 },
+  marked: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, borderRadius: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
 });

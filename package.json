@@ -25,9 +25,13 @@
     ]
   },
   "dependencies": {
+    "@expo-google-fonts/fraunces": "^0.4.1",
+    "@expo-google-fonts/inter": "^0.4.2",
     "@expo/metro-runtime": "~58.0.15",
     "@expo/vector-icons": "^15.0.2",
     "expo": "~58.0.21",
+    "expo-asset": "~58.0.19",
+    "expo-audio": "~58.0.11",
     "expo-blur": "~58.0.5",
     "expo-build-properties": "~58.0.11",
     "expo-constants": "~58.0.13",

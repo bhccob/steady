@@ -1,3 +1,4 @@
+import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
@@ -9,6 +10,7 @@ import { DB_NAME, migrate } from '../src/db/migrations';
 import { usePerfProbe } from '../src/lib/perf';
 import { NotificationBridge } from '../src/notify/NotificationBridge';
 import { PrivacyGate } from '../src/privacy/PrivacyGate';
+import { FONT_FILES } from '../src/theme/fonts';
 import { useTheme } from '../src/theme/useTheme';
 import { Background } from '../src/ui/Background';
 import { useDbLock } from '../src/web/dbLock';
@@ -23,11 +25,15 @@ export default function RootLayout() {
   const theme = useTheme();
   const install = useInstall();
   const dbLock = useDbLock(opensDatabase(install.step));
+  // The fonts ship with the app, so this takes a moment; if one fails, text falls back to the system font.
+  const [fontsLoaded, fontsFailed] = useFonts(FONT_FILES);
   usePerfProbe();
   useEffect(() => {
     registerServiceWorker();
     persistStorage();
   }, []);
+
+  if (!fontsLoaded && !fontsFailed) return <Background />;
 
   // Web only: install comes first, before this tab takes the database (see install.ts).
   if (!opensDatabase(install.step)) {

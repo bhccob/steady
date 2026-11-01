@@ -1,5 +1,6 @@
 import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
+import { fonts } from '../theme/fonts';
 import { MAX_FONT_SCALE, radius } from '../theme/tokens';
 import { useTheme } from '../theme/useTheme';
 import { AppText } from './Text';
@@ -38,5 +39,5 @@ export function TextField({ label, hint, ...input }: TextFieldProps) {
 
 const styles = StyleSheet.create({
   wrap: { gap: 6 },
-  input: { minHeight: 52, borderRadius: radius.control, borderWidth: 1, paddingHorizontal: 16, fontSize: 16 },
+  input: { minHeight: 52, borderRadius: radius.control, borderWidth: 1, paddingHorizontal: 16, fontSize: 16, fontFamily: fonts.text },
 });

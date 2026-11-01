@@ -25,6 +25,8 @@ export interface Profile {
   crisisRegion: string | null;
   /** Blur the app in the app switcher (iOS) or mark the window secure (Android, which also blocks screenshots). */
   hideInSwitcher: boolean;
+  /** A soft tink as today's block lands on the path. */
+  markSound: boolean;
   /** Setup steps the user answered, even with nothing picked (see src/home/setup.ts). */
   setupAnswered: string[];
   /** When the user hid Home's Get set up list; null while it shows. */
@@ -52,6 +54,7 @@ interface ProfileRow {
   support_level_chosen: number;
   crisis_region: string | null;
   hide_in_switcher: number;
+  mark_sound: number;
   setup_answered_json: string;
   setup_hidden_at: string | null;
   created_at: string;
@@ -74,6 +77,7 @@ const COLUMNS: Record<keyof ProfilePatch, string> = {
   supportLevelChosen: 'support_level_chosen',
   crisisRegion: 'crisis_region',
   hideInSwitcher: 'hide_in_switcher',
+  markSound: 'mark_sound',
   setupHiddenAt: 'setup_hidden_at',
 };
 
@@ -105,6 +109,7 @@ function fromRow(r: ProfileRow): Profile {
     supportLevelChosen: r.support_level_chosen === 1,
     crisisRegion: r.crisis_region,
     hideInSwitcher: r.hide_in_switcher === 1,
+    markSound: r.mark_sound === 1,
     setupAnswered: answeredFrom(r.setup_answered_json),
     setupHiddenAt: r.setup_hidden_at,
     createdAt: r.created_at,

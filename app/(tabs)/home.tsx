@@ -20,21 +20,26 @@ import { PillCard, type NextDose } from '../../src/home/PillCard';
 import { hasPills } from '../../src/pills/active';
 import { AddedCard } from '../../src/pills/AddedCard';
 import { AddPillRow } from '../../src/pills/AddPillRow';
-import { StreakPath } from '../../src/home/StreakPath';
+import { markMoment } from '../../src/home/markMoment';
+import { StreakPath, type PathMoment } from '../../src/home/StreakPath';
 import { useHome } from '../../src/home/useHome';
+import { celebrateHaptic, markHaptic } from '../../src/lib/haptics';
 import { shortDate } from '../../src/lib/time';
+import { playTink, preloadTink } from '../../src/lib/tink';
 import { localDateIn } from '../../src/lib/tz';
 import { totalPoints, weekLabel, weekStartOf } from '../../src/rewards/trophies';
 import { steadyScore } from '../../src/scoring/score';
 import { classifyMark } from '../../src/scoring/status';
 import { steadyStreak, totalDaysMarked } from '../../src/scoring/streak';
 import { useApp } from '../../src/state/app';
+import { fonts } from '../../src/theme/fonts';
 import { layout } from '../../src/theme/tokens';
 import { Background } from '../../src/ui/Background';
 import { useTabBarSpace } from '../../src/ui/FloatingTabBar';
 import { Glass } from '../../src/ui/Glass';
 import { Icon } from '../../src/ui/Icon';
 import { LoadProblem } from '../../src/ui/LoadProblem';
+import { RollingNumber } from '../../src/ui/RollingNumber';
 import { AppText } from '../../src/ui/Text';
 
 export default function HomeScreen() {
@@ -73,6 +78,8 @@ export default function HomeScreen() {
   const [scrollEnabled, setScrollEnabled] = useState(true);
   const [note, setNote] = useState<string | undefined>();
   const [comebacks, setComebacks] = useState(0);
+  /** The latest mark, played on the path: today's block rises in, or glows. */
+  const [moment, setMoment] = useState<PathMoment | null>(null);
   const offerHelp = useRef<Promise<boolean>>(Promise.resolve(false));
 
   useEffect(() => {
@@ -80,6 +87,11 @@ export default function HomeScreen() {
     const t = setTimeout(() => setNote(undefined), 5000);
     return () => clearTimeout(t);
   }, [note]);
+
+  const soundOn = data?.profile.markSound === true;
+  useEffect(() => {
+    if (soundOn) preloadTink();
+  }, [soundOn]);
 
   // At Steady and Close, a dose left open gently offers the help sheet once a day, after the mood question.
   const moodShowing = !!data && !data.checkinToday && !data.moodDismissed && !moodHandled;
@@ -132,8 +144,11 @@ export default function HomeScreen() {
   const others = todays.filter((d) => d.id !== nextDose?.id);
 
   const onMark = async (doseId: string) => {
+    const kind = markMoment(entries);
     const outcome = await mark(doseId);
-    if (outcome?.comeback) {
+    if (!outcome) return;
+    setMoment((m) => ({ kind, key: (m?.key ?? 0) + 1, comeback: outcome.comeback }));
+    if (outcome.comeback) {
       setNote('there you are.');
       setComebacks((n) => n + 1);
     }
@@ -168,13 +183,23 @@ export default function HomeScreen() {
           {setup.rows ? <SetupList rows={setup.rows} remindNote={setup.remindNote} onOpen={openStep} onHide={setup.hide} /> : null}
 
           <View style={styles.hero}>
-            <StreakPath entries={entries} focus={focus} onTap={onTap} onDragChange={(d) => setScrollEnabled(!d)} />
+            <StreakPath
+              entries={entries}
+              focus={focus}
+              onTap={onTap}
+              onDragChange={(d) => setScrollEnabled(!d)}
+              moment={moment}
+              // The buzz, and the tink when it's on, come as the block lands, not as the finger lifts.
+              onLanded={(m) => {
+                if (m.comeback) celebrateHaptic();
+                else markHaptic();
+                if (profile.markSound) playTink();
+              }}
+            />
             <ComebackGlow play={comebacks} />
             <View pointerEvents="none" style={styles.heroText} accessible accessibilityLabel={summary}>
               <View style={styles.streakRow}>
-                <AppText maxFontSizeMultiplier={1.2} style={styles.streak}>
-                  {streak}
-                </AppText>
+                <RollingNumber value={streak} maxFontSizeMultiplier={1.2} style={styles.streak} />
                 <AppText variant="bodyStrong">day streak</AppText>
               </View>
               <AppText variant="caption" tone="secondary">
@@ -312,9 +337,9 @@ const styles = StyleSheet.create({
   column: { width: '100%', maxWidth: layout.maxContentWidth, alignSelf: 'center', gap: 10 },
   header: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   hero: { height: 340, marginHorizontal: -layout.gutter },
-  heroText: { position: 'absolute', left: layout.gutter, top: 2, maxWidth: 160, gap: 2 },
+  heroText: { position: 'absolute', left: layout.gutter, top: 2, maxWidth: 180, gap: 2 },
   streakRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
-  streak: { fontSize: 52, lineHeight: 58, fontWeight: '600', letterSpacing: -2 },
+  streak: { fontSize: 56, lineHeight: 60, fontFamily: fonts.number, letterSpacing: -1.5 },
   points: { alignSelf: 'flex-start', marginTop: 8 },
   pointsInner: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, minHeight: 34 },
   later: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 6 },

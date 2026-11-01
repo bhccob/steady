@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Animated, PanResponder, Pressable, StyleSheet, View, type GestureResponderEvent, type ViewStyle } from 'react-native';
+import { Animated, Easing, PanResponder, Pressable, StyleSheet, View, type GestureResponderEvent, type ViewStyle } from 'react-native';
 
 import { useReducedMotion } from '../lib/useReducedMotion';
 import { DECOR_FONT_SCALE, motion, type Theme } from '../theme/tokens';
@@ -82,23 +82,60 @@ interface StreakPathProps {
   onTap: (index: number) => void;
   /** Lets the screen pause its own scrolling while the path is dragged. */
   onDragChange?: (dragging: boolean) => void;
+  /** The latest mark, played on today's block. */
+  moment?: PathMoment | null;
+  /** When today's block lands (at once for a glow, or under Reduce Motion). */
+  onLanded?: (moment: PathMoment) => void;
 }
+
+/** A mark as the path shows it: the day's first rises in, later ones glow. A new `key` plays it again. */
+export interface PathMoment {
+  kind: 'rise' | 'glow';
+  key: number;
+  comeback: boolean;
+}
+
+/** How far below its place today's block starts when it rises in: down toward the pill card. */
+const RISE_FROM = 170;
 
 /**
  * The streak as blocks on a path that recedes into the distance. It follows the finger: push it up to look back;
  * tap a block for that day. The 3D look is computed (see pathProjection.ts), so every block is
  * a flat view: taps land where the block is drawn, and nothing is rotated in 3D.
  */
-export function StreakPath({ entries, focus, onTap, onDragChange }: StreakPathProps) {
+export function StreakPath({ entries, focus, onTap, onDragChange, moment, onLanded }: StreakPathProps) {
   const theme = useTheme();
   const reduced = useReducedMotion();
   const [view, setView] = useState<Viewport | null>(null);
 
   // The latest props for the gesture handlers, which are made once.
-  const live = useRef({ entries, onTap, onDragChange, reduced, view });
+  const live = useRef({ entries, onTap, onDragChange, onLanded, reduced, view });
   useLayoutEffect(() => {
-    live.current = { entries, onTap, onDragChange, reduced, view };
+    live.current = { entries, onTap, onDragChange, onLanded, reduced, view };
   });
+
+  // A mark plays on today's block: the day's first rises in with a spring, then it glows.
+  const [land] = useState(() => new Animated.Value(1));
+  const [glow] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    if (!moment) return;
+    const { reduced: still } = live.current;
+    const landed = () => live.current.onLanded?.(moment);
+    const shine = Animated.sequence([
+      Animated.timing(glow, { toValue: 1, duration: 140, useNativeDriver: true }),
+      Animated.timing(glow, { toValue: 0, duration: 700, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+    ]);
+    if (moment.kind === 'glow' || still) {
+      landed();
+      if (!still) shine.start();
+      return;
+    }
+    land.setValue(0);
+    Animated.spring(land, { toValue: 1, damping: 11, stiffness: 150, mass: 0.9, useNativeDriver: true }).start(() => {
+      landed();
+      shine.start();
+    });
+  }, [moment, land, glow]);
   const base = useRef(focus * PATH.step);
   const [shift] = useState(() => new Animated.Value(focus * PATH.step));
   /** The block under a finger or the mouse, which wears the halo. */
@@ -209,19 +246,43 @@ export function StreakPath({ entries, focus, onTap, onDragChange }: StreakPathPr
               const style = motionStyles[i];
               if (!style) return null;
               const size = sizeOf(e);
+              const today = e.kind === 'day' && e.isToday;
+              const block = (
+                // Touches go to the path's own handler; this stays for screen readers.
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={a11yLabel(e)}
+                  accessibilityHint="Shows that day"
+                  onPress={() => onTap(i)}
+                  style={[styles.face, { width: size, height: size * PATH.faceRatio + SIDE, borderRadius: blockRadius(size) }, tileStyle(e, theme)]}
+                >
+                  <GlowHalo on={glowIndex === i} radius={blockRadius(size)} durationMs={glowIndex === i ? GLOW.pressInMs : GLOW.outMs} />
+                  <Face e={e} t={theme} />
+                </Pressable>
+              );
               return (
                 <Animated.View key={e.kind === 'day' ? e.date : `trophy-${e.weekStart}`} pointerEvents="none" style={[styles.tile, style]}>
-                  {/* Touches go to the path's own handler; this stays for screen readers. */}
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={a11yLabel(e)}
-                    accessibilityHint="Shows that day"
-                    onPress={() => onTap(i)}
-                    style={[styles.face, { width: size, height: size * PATH.faceRatio + SIDE, borderRadius: blockRadius(size) }, tileStyle(e, theme)]}
-                  >
-                    <GlowHalo on={glowIndex === i} radius={blockRadius(size)} durationMs={glowIndex === i ? GLOW.pressInMs : GLOW.outMs} />
-                    <Face e={e} t={theme} />
-                  </Pressable>
+                  {today ? (
+                    <>
+                      <Animated.View
+                        pointerEvents="none"
+                        style={[styles.shine, { borderRadius: blockRadius(size) + 6, backgroundColor: theme.accent, boxShadow: `0px 0px 24px 10px ${theme.accent}`, opacity: glow }]}
+                      />
+                      <Animated.View
+                        style={{
+                          opacity: land.interpolate({ inputRange: [0, 0.12, 1], outputRange: [0, 1, 1] }),
+                          transform: [
+                            { translateY: land.interpolate({ inputRange: [0, 1], outputRange: [RISE_FROM, 0] }) },
+                            { scale: land.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }) },
+                          ],
+                        }}
+                      >
+                        {block}
+                      </Animated.View>
+                    </>
+                  ) : (
+                    block
+                  )}
                 </Animated.View>
               );
             })
@@ -232,6 +293,7 @@ export function StreakPath({ entries, focus, onTap, onDragChange }: StreakPathPr
 
 const styles = StyleSheet.create({
   tile: { position: 'absolute', left: 0, top: 0 },
+  shine: { position: 'absolute', left: -6, top: -6, right: -6, bottom: -6 },
   face: { alignItems: 'center', justifyContent: 'center', gap: 1 },
   small: { fontSize: 10, lineHeight: 12, fontWeight: '600', letterSpacing: 0.2 },
   num: { fontSize: 19, lineHeight: 22, fontWeight: '600' },

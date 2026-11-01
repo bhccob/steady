@@ -14,7 +14,7 @@ import { collectTrophy, listTrophies, type CollectedTrophy } from '../db/dao/tro
 import type { Mood } from '../db/schema';
 import type { Db } from '../db/types';
 import { reconcileDoses } from '../doses/reconcile';
-import { celebrateHaptic, lightHaptic, markHaptic } from '../lib/haptics';
+import { celebrateHaptic, lightHaptic } from '../lib/haptics';
 import { loadData } from '../lib/loadData';
 import { addDays, DAY_MS, inQuietHours, MINUTE_MS, type LocalDate } from '../lib/time';
 import { localDateIn, localMinutesIn, zonedTimeToUtc } from '../lib/tz';
@@ -196,9 +196,8 @@ export function useHome() {
 
   const mark = useCallback(
     async (doseId: string): Promise<MarkOutcome | null> => {
+      // No haptic here: Home buzzes as today's block lands on the path.
       const outcome = await markDose(db, { doseId, nowUtc: new Date().toISOString() });
-      if (outcome?.comeback) celebrateHaptic();
-      else if (outcome) markHaptic();
       activePort.dismiss([doseId]).catch(() => {});
       await load(); // re-syncs reminders, cancelling the rest for this dose
       return outcome;
